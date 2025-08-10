@@ -23,7 +23,7 @@ provider "aws" {
 # S3 Bucket for Terraform State
 # ---
 resource "aws_s3_bucket" "terraform_state_bucket" {
-  bucket = "AWSaccountNumber-provable-labs-2025"
+  bucket = "206055865483-provable-labs-2025"
 
   tags = {
     Name = "terraform-state-bucket"
