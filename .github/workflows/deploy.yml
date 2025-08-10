@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline AWS
 
 on:
   push:
@@ -6,9 +6,9 @@ on:
       - main
 
 env:
-  GCP_PROJECT_ID: your-gcp-project-id
-  GCP_REGION: us-central1
-  GCR_HOSTNAME: gcr.io
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: go-rest-api
+  EKS_CLUSTER_NAME: simple-api-cluster
 
 jobs:
   build-and-deploy:
@@ -17,21 +17,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker
-
-      - name: Build and Push Docker image to GCR
+      - name: Build, tag, and push Docker image to Amazon ECR
         run: |
-          docker build -t $GCR_HOSTNAME/$GCP_PROJECT_ID/go-rest-api:latest .
-          docker push $GCR_HOSTNAME/$GCP_PROJECT_ID/go-rest-api:latest
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest .
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
@@ -39,18 +39,16 @@ jobs:
           terraform_version: 1.1.7
 
       - name: Terraform Init
-        id: init
         run: terraform init
 
       - name: Terraform Apply
-        id: apply
         run: terraform apply -auto-approve
         env:
-          TF_VAR_gcp_project_id: ${{ env.GCP_PROJECT_ID }}
-          TF_VAR_gcp_region: ${{ env.GCP_REGION }}
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_cluster_name: ${{ env.EKS_CLUSTER_NAME }}
       
-      - name: Get GKE credentials
-        run: gcloud container clusters get-credentials simple-api-cluster --region $GCP_REGION --project $GCP_PROJECT_ID
+      - name: Get kubeconfig for EKS
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
       - name: Apply Kubernetes manifests
         run: |
