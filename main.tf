@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "206055865483-provable-labs-2025"
+    bucket         = "206055865483-provable-labs-10aug2025"
     key            = "simple-api/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
@@ -19,16 +19,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# ---
-# S3 Bucket for Terraform State
-# ---
-resource "aws_s3_bucket" "terraform_state_bucket" {
-  bucket = "206055865483-provable-labs-2025"
-
-  tags = {
-    Name = "terraform-state-bucket"
-  }
-}
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "state_bucket_encryption" {
   bucket = aws_s3_bucket.terraform_state_bucket.id
