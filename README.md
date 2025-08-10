@@ -1,4 +1,5 @@
 Project Setup and Deployment Guide 🚀
+
 This guide explains how to deploy a simple Go REST API to an Amazon EKS cluster using Terraform for infrastructure and GitHub Actions for continuous deployment.
 
 Prerequisites
@@ -43,19 +44,21 @@ Kubernetes Deployment: kubectl commands deploy the Go API application and expose
 3. Testing the Endpoints
 Once the deployment is complete, you can find the public DNS name of your Load Balancer to test the API endpoints.
 
-Get the Load Balancer Hostname: Run the following command to find the EXTERNAL-IP of your Kubernetes Service:
+<h2>1.</h2> Get the Load Balancer Hostname: Run the following command to find the EXTERNAL-IP of your Kubernetes Service:
 
-Bash
+```bash
 
 kubectl get service go-rest-api-service
+```
 Test the Endpoints: Use curl with the obtained hostname.
 
 GET /ping:
 
-Bash
+```bash
 
 curl http://<your-load-balancer-hostname>/ping
-Expected response: pong
+```
+Expected response: ```bash pong ```
 
 POST /hello:
 
