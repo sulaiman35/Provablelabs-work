@@ -56,18 +56,6 @@ resource "aws_dynamodb_table" "terraform_state_lock" {
 }
 
 # ---
-# ECR Repository
-# ---
-resource "aws_ecr_repository" "go_rest_api_repo" {
-  name                 = "go-rest-api"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-# ---
 # EKS Cluster and Node Group
 # ---
 # IAM Role for the EKS Cluster
