@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "AWSaccountNumber-provable-labs-2025"
+    bucket         = "206055865483-provable-labs-2025"
     key            = "simple-api/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
