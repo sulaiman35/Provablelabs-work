@@ -1,28 +1,23 @@
-variable "gcp_project_id" {
-  description = "The GCP project ID"
+variable "aws_region" {
+  description = "The AWS region to deploy the cluster"
   type        = string
-}
-
-variable "gcp_region" {
-  description = "The GCP region to deploy the cluster"
-  type        = string
-  default     = "us-central1"
+  default     = "us-east-1"
 }
 
 variable "cluster_name" {
-  description = "The name for the GKE cluster"
+  description = "The name for the EKS cluster"
   type        = string
   default     = "simple-api-cluster"
 }
 
 variable "node_count" {
-  description = "The number of nodes in the GKE cluster's primary node pool"
+  description = "The number of nodes in the EKS cluster's node group"
   type        = number
-  default     = 1
+  default     = 2
 }
 
-variable "machine_type" {
-  description = "The machine type for the GKE nodes"
+variable "instance_type" {
+  description = "The instance type for the EKS nodes"
   type        = string
-  default     = "e2-medium"
+  default     = "t3a.medium"
 }

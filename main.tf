@@ -1,55 +1,115 @@
 terraform {
   required_providers {
-    google = {
-      source = "hashicorp/google"
-      version = "4.51.0"
+    aws = {
+      source  = "hashicorp/aws"
+      version = "4.67.0"
     }
   }
 }
 
-provider "google" {
-  project = var.gcp_project_id
-  region  = var.gcp_region
+provider "aws" {
+  region = var.aws_region
 }
 
-resource "google_container_cluster" "gke_cluster" {
-  name                     = var.cluster_name
-  location                 = var.gcp_region
-  initial_node_count       = 1
-  remove_default_node_pool = true
-  
-  network    = google_compute_network.vpc.self_link
-  subnetwork = google_compute_subnetwork.subnet.self_link
+# IAM Role for the EKS Cluster
+resource "aws_iam_role" "eks_cluster_role" {
+  name = "${var.cluster_name}-eks-cluster-role"
 
-  master_auth {
-    client_certificate_config {
-      issue_client_certificate = false
-    }
-  }
-}
-
-resource "google_container_node_pool" "primary_node_pool" {
-  name       = "${google_container_cluster.gke_cluster.name}-node-pool"
-  location   = var.gcp_region
-  cluster    = google_container_cluster.gke_cluster.name
-  node_count = var.node_count
-
-  node_config {
-    machine_type = var.machine_type
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform",
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+      },
     ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_cluster_role.name
+}
+
+# IAM Role for the EKS Node Group
+resource "aws_iam_role" "eks_node_group_role" {
+  name = "${var.cluster_name}-eks-node-group-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_node_group_policy_1" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_node_group_policy_2" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_node_group_policy_3" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+# VPC, Subnets, and Security Groups for EKS
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "3.1.0"
+
+  name = "${var.cluster_name}-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs             = ["${var.aws_region}a", "${var.aws_region}b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+  enable_nat_gateway   = true
+  single_nat_gateway   = true
+  enable_dns_hostnames = true
+}
+
+# EKS Cluster
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = var.cluster_name
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  vpc_config {
+    subnet_ids = module.vpc.private_subnets
   }
 }
 
-resource "google_compute_network" "vpc" {
-  name = "${var.cluster_name}-vpc"
-  auto_create_subnetworks = false
-}
+# EKS Node Group
+resource "aws_eks_node_group" "eks_node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "${var.cluster_name}-node-group"
+  node_role_arn   = aws_iam_role.eks_node_group_role.arn
+  subnet_ids      = module.vpc.private_subnets
+  instance_types  = [var.instance_type]
 
-resource "google_compute_subnetwork" "subnet" {
-  name = "${var.cluster_name}-subnet"
-  ip_cidr_range = "10.0.0.0/16"
-  region        = var.gcp_region
-  network       = google_compute_network.vpc.self_link
+  scaling_config {
+    desired_size = var.node_count
+    max_size     = var.node_count
+    min_size     = var.node_count
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_node_group_policy_1,
+    aws_iam_role_policy_attachment.eks_node_group_policy_2,
+    aws_iam_role_policy_attachment.eks_node_group_policy_3,
+  ]
 }
