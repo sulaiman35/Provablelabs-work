@@ -5,14 +5,71 @@ terraform {
       version = "4.67.0"
     }
   }
+
+  backend "s3" {
+    bucket         = "AWSaccountNumber-provable-labs-2025"
+    key            = "simple-api/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "terraform-state-lock"
+  }
 }
 
 provider "aws" {
   region = var.aws_region
 }
 
+# ---
+# S3 Bucket for Terraform State
+# ---
+resource "aws_s3_bucket" "terraform_state_bucket" {
+  bucket = "AWSaccountNumber-provable-labs-2025"
 
+  tags = {
+    Name = "terraform-state-bucket"
+  }
+}
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "state_bucket_encryption" {
+  bucket = aws_s3_bucket.terraform_state_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# ---
+# DynamoDB Table for State Locking
+# ---
+resource "aws_dynamodb_table" "terraform_state_lock" {
+  name           = "terraform-state-lock"
+  hash_key       = "LockID"
+  read_capacity  = 5
+  write_capacity = 5
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+
+# ---
+# ECR Repository
+# ---
+resource "aws_ecr_repository" "go_rest_api_repo" {
+  name                 = "go-rest-api"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+# ---
+# EKS Cluster and Node Group
+# ---
 # IAM Role for the EKS Cluster
 resource "aws_iam_role" "eks_cluster_role" {
   name = "${var.cluster_name}-eks-cluster-role"
